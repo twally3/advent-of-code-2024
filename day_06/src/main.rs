@@ -90,19 +90,35 @@ fn main() {
     let total = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
 
+    let mut coordinates = Vec::new();
     for x in 0..original_grid.len() {
         for y in 0..original_grid[0].len() {
-            //let original_grid = Arc::clone(&original_grid);
-            let original_grid = original_grid.clone();
-            let total_clone = Arc::clone(&total);
-            let handle = thread::spawn(move || {
-                //dbg!(x, y);
+            coordinates.push((x, y));
+        }
+    }
+
+    let threads = 16;
+    let num_batches = coordinates.len() / threads;
+    let batches = coordinates
+        .chunks(num_batches)
+        .map(Vec::from)
+        .collect::<Vec<_>>();
+
+    for (i, batch) in batches.into_iter().enumerate() {
+        let original_grid = original_grid.clone();
+        let total_clone = Arc::clone(&total);
+
+        let handle = thread::spawn(move || {
+            for (j, (x, y)) in batch.into_iter().enumerate() {
+                if j % 10 == 0 {
+                    dbg!(i, j);
+                }
                 if !matches!(original_grid[x][y], Cell::Space) {
-                    return;
+                    continue;
                 }
                 let mut grid = original_grid.clone();
                 grid[x][y] = Cell::Obstruction;
-                //print_grid(&grid);
+
                 let mut positions = std::collections::HashSet::new();
 
                 'outer: loop {
@@ -207,10 +223,10 @@ fn main() {
                     }
                     grid = new_grid.clone();
                 }
-            });
+            }
+        });
 
-            handles.push(handle);
-        }
+        handles.push(handle);
     }
 
     for handle in handles {
